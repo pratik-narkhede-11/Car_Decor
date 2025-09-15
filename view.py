@@ -122,16 +122,64 @@ class DashboardFrame(ttk.Frame):
         self.tree.selection_remove(self.tree.selection())
         self.on_record_select(None)
 
-# --- (Dashboards are unchanged but will inherit the new button logic) ---
 class AdminDashboard(DashboardFrame):
     def create_buttons(self, parent_frame):
         ttk.Button(parent_frame, text="Add New Record", command=self.controller.show_add_record_window).pack(side='left', padx=5)
         ttk.Button(parent_frame, text="Manage Decor Items", command=self.controller.show_manage_items_window).pack(side='left', padx=5)
         ttk.Button(parent_frame, text="Manage Users", command=self.controller.show_manage_users_window).pack(side='left', padx=5)
+        
+        # --- NEW: Export Dropdown Menu ---
+        export_menubutton = ttk.Menubutton(parent_frame, text="Export")
+        export_menu = tk.Menu(export_menubutton, tearoff=0)
+        export_menubutton["menu"] = export_menu
+        
+        export_menu.add_command(label="Export Users", command=self.controller.export_users_to_csv)
+        export_menu.add_command(label="Export Records by Date", command=self.controller.prompt_for_records_export)
+        
+        export_menubutton.pack(side='left', padx=5)
 
 class StdUserDashboard(DashboardFrame):
     def create_buttons(self, parent_frame):
         ttk.Button(parent_frame, text="Add New Record", command=self.controller.show_add_record_window).pack(side='left', padx=5)
+
+class DateRangeDialog(tk.Toplevel):
+    def __init__(self, parent, controller):
+        super().__init__(parent)
+        self.controller = controller
+        self.title("Select Date Range")
+        self.geometry("350x180")
+        self.transient(parent)
+        self.grab_set()
+
+        # Get today's date for defaults
+        today_str = controller.get_today_date_str()
+
+        ttk.Label(self, text="Export records within a date range.").pack(pady=10)
+        
+        form_frame = ttk.Frame(self)
+        form_frame.pack(padx=10, pady=5)
+
+        ttk.Label(form_frame, text="Start Date (YYYY-MM-DD):").grid(row=0, column=0, sticky='w', pady=2)
+        self.start_date_entry = ttk.Entry(form_frame)
+        self.start_date_entry.grid(row=0, column=1, pady=2)
+        self.start_date_entry.insert(0, today_str)
+
+        ttk.Label(form_frame, text="End Date (YYYY-MM-DD):").grid(row=1, column=0, sticky='w', pady=2)
+        self.end_date_entry = ttk.Entry(form_frame)
+        self.end_date_entry.grid(row=1, column=1, pady=2)
+        self.end_date_entry.insert(0, today_str)
+        
+        button_frame = ttk.Frame(self)
+        button_frame.pack(pady=10)
+        
+        ttk.Button(button_frame, text="Export", command=self.submit).pack(side='left', padx=5)
+        ttk.Button(button_frame, text="Cancel", command=self.destroy).pack(side='left', padx=5)
+        
+    def submit(self):
+        start_date = self.start_date_entry.get()
+        end_date = self.end_date_entry.get()
+        self.destroy() # Close the dialog first
+        self.controller.export_records_to_csv(start_date, end_date)
 
 # --- NEW: Details Window Class ---
 class RecordDetailsWindow(tk.Toplevel):
@@ -172,7 +220,7 @@ class RecordDetailsWindow(tk.Toplevel):
             
         ttk.Button(self, text="Close", command=self.destroy).pack(pady=10)
 
-        
+
 class AddRecordWindow(tk.Toplevel):
     def __init__(self, parent, controller):
         super().__init__(parent)

@@ -1,5 +1,7 @@
-from tkinter import messagebox
-from view import LoginWindow, AddRecordWindow, RecordDetailsWindow
+import csv
+from datetime import datetime, timedelta
+from tkinter import filedialog, messagebox
+from view import LoginWindow, AddRecordWindow, RecordDetailsWindow, DateRangeDialog
 from model import Session, User, DecorItem, CarRecord, RecordItemLink
 
 class Controller:
@@ -92,3 +94,83 @@ class Controller:
 
     def show_manage_users_window(self):
         messagebox.showinfo("Info", "Manage Users UI not implemented yet.")
+
+    def get_today_date_str(self):
+        """Helper method to get today's date as a string."""
+        return datetime.now().strftime('%Y-%m-%d')
+        
+    def export_users_to_csv(self):
+        """Exports all users and their roles to a CSV file."""
+        filepath = filedialog.asksaveasfilename(
+            defaultextension=".csv",
+            filetypes=[("CSV Files", "*.csv"), ("All Files", "*.*")],
+            title="Save User List As"
+        )
+        if not filepath:
+            return # User cancelled
+
+        try:
+            users = self.session.query(User).all()
+            with open(filepath, 'w', newline='', encoding='utf-8') as csvfile:
+                writer = csv.writer(csvfile)
+                # Write header
+                writer.writerow(['Username', 'Role'])
+                # Write data
+                for user in users:
+                    writer.writerow([user.username, user.role])
+            messagebox.showinfo("Success", f"Successfully exported users to\n{filepath}")
+        except Exception as e:
+            messagebox.showerror("Export Error", f"An error occurred: {e}")
+
+    def prompt_for_records_export(self):
+        """Opens the date range selection dialog."""
+        dialog = DateRangeDialog(self.view, self)
+        dialog.wait_window()
+
+    def export_records_to_csv(self, start_date_str, end_date_str):
+        """Exports car records within a given date range to a CSV file."""
+        try:
+            # Convert string dates to datetime objects
+            start_date = datetime.strptime(start_date_str, '%Y-%m-%d')
+            # Add 1 day to the end date to make the range inclusive
+            end_date = datetime.strptime(end_date_str, '%Y-%m-%d') + timedelta(days=1)
+        except ValueError:
+            messagebox.showerror("Invalid Date", "Please enter dates in YYYY-MM-DD format.")
+            return
+
+        filepath = filedialog.asksaveasfilename(
+            defaultextension=".csv",
+            filetypes=[("CSV Files", "*.csv"), ("All Files", "*.*")],
+            title="Save Records As"
+        )
+        if not filepath:
+            return # User cancelled
+
+        try:
+            records = self.session.query(CarRecord).filter(
+                CarRecord.record_date >= start_date,
+                CarRecord.record_date < end_date
+            ).all()
+
+            with open(filepath, 'w', newline='', encoding='utf-8') as csvfile:
+                writer = csv.writer(csvfile)
+                # Write header
+                writer.writerow(['Record ID', 'Date', 'Car Number', 'Owner', 'Total Cost', 'Items Used'])
+                # Write data
+                for record in records:
+                    # Format the list of items into a single string
+                    items_str = ", ".join(
+                        f"{link.decor_item.name} (Qty: {link.quantity})"
+                        for link in record.items_used
+                    )
+                    writer.writerow([
+                        record.id,
+                        record.record_date.strftime('%Y-%m-%d %H:%M'),
+                        record.car_number,
+                        record.owner_name,
+                        record.total_cost,
+                        items_str
+                    ])
+            messagebox.showinfo("Success", f"Successfully exported {len(records)} records to\n{filepath}")
+        except Exception as e:
+            messagebox.showerror("Export Error", f"An error occurred: {e}")
