@@ -1,0 +1,4 @@
+ttkbootstrap==1.14.2
+SQLAlchemy==2.0.30
+werkzeug==3.0.3
+pyinstaller==6.8.0
