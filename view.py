@@ -1,3 +1,4 @@
+# view.py
 import tkinter as tk
 from tkinter import ttk, messagebox
 
@@ -54,7 +55,7 @@ class LoginWindow(tk.Toplevel):
         password = self.password_entry.get()
         self.controller.handle_login(username, password, self)
 
-# --- Base Dashboard Frame (UPDATED) ---
+# --- Base Dashboard Frame ---
 class DashboardFrame(ttk.Frame):
     def __init__(self, parent, controller):
         super().__init__(parent)
@@ -68,15 +69,12 @@ class DashboardFrame(ttk.Frame):
         top_frame = ttk.Frame(self)
         top_frame.pack(fill='x', pady=5)
         
-        # This frame holds the action buttons
         action_buttons_frame = ttk.Frame(top_frame)
         action_buttons_frame.pack(side='left')
         self.create_buttons(action_buttons_frame)
 
-        # --- NEW: View Details Button ---
         self.view_details_button = ttk.Button(top_frame, text="View Details", command=self.view_details, state="disabled")
         self.view_details_button.pack(side='right')
-        # --- END NEW ---
 
         ttk.Label(self, text="Recent Activities", font=('Helvetica', 14, 'bold')).pack(pady=10)
         self.tree = ttk.Treeview(self, columns=("ID", "Date", "Car Number", "Owner", "Cost"), show='headings')
@@ -87,26 +85,21 @@ class DashboardFrame(ttk.Frame):
         self.tree.heading("Cost", text="Total Cost")
         self.tree.pack(fill="both", expand=True)
 
-        # --- NEW: Bind selection event ---
         self.tree.bind("<<TreeviewSelect>>", self.on_record_select)
         
         self.refresh_records_display()
 
     def on_record_select(self, event):
-        """Called when a user selects a row in the treeview."""
         selected_items = self.tree.selection()
         if selected_items:
-            # If a row is selected, enable the button and store the ID
             self.view_details_button['state'] = 'normal'
             selected_item = selected_items[0]
             self.selected_record_id = self.tree.item(selected_item)['values'][0]
         else:
-            # If nothing is selected, disable the button
             self.view_details_button['state'] = 'disabled'
             self.selected_record_id = None
             
     def view_details(self):
-        """Calls the controller to show the details window."""
         if self.selected_record_id:
             self.controller.show_record_details(self.selected_record_id)
 
@@ -118,7 +111,6 @@ class DashboardFrame(ttk.Frame):
         for record in records:
             formatted_date = record.record_date.strftime("%Y-%m-%d %H:%M")
             self.tree.insert("", "end", values=(record.id, formatted_date, record.car_number, record.owner_name, f"₹{record.total_cost:.2f}"))
-        # After refreshing, clear selection and disable button
         self.tree.selection_remove(self.tree.selection())
         self.on_record_select(None)
 
@@ -128,7 +120,6 @@ class AdminDashboard(DashboardFrame):
         ttk.Button(parent_frame, text="Manage Decor Items", command=self.controller.show_manage_items_window).pack(side='left', padx=5)
         ttk.Button(parent_frame, text="Manage Users", command=self.controller.show_manage_users_window).pack(side='left', padx=5)
         
-        # --- NEW: Export Dropdown Menu ---
         export_menubutton = ttk.Menubutton(parent_frame, text="Export")
         export_menu = tk.Menu(export_menubutton, tearoff=0)
         export_menubutton["menu"] = export_menu
@@ -151,7 +142,6 @@ class DateRangeDialog(tk.Toplevel):
         self.transient(parent)
         self.grab_set()
 
-        # Get today's date for defaults
         today_str = controller.get_today_date_str()
 
         ttk.Label(self, text="Export records within a date range.").pack(pady=10)
@@ -178,10 +168,9 @@ class DateRangeDialog(tk.Toplevel):
     def submit(self):
         start_date = self.start_date_entry.get()
         end_date = self.end_date_entry.get()
-        self.destroy() # Close the dialog first
+        self.destroy() 
         self.controller.export_records_to_csv(start_date, end_date)
 
-# --- NEW: Details Window Class ---
 class RecordDetailsWindow(tk.Toplevel):
     def __init__(self, parent, record_info, item_list):
         super().__init__(parent)
@@ -190,7 +179,6 @@ class RecordDetailsWindow(tk.Toplevel):
         self.transient(parent)
         self.grab_set()
 
-        # Display main record info
         info_frame = ttk.LabelFrame(self, text="Summary")
         info_frame.pack(padx=10, pady=10, fill='x')
         ttk.Label(info_frame, text=f"Car Number: {record_info.car_number}").pack(anchor='w')
@@ -198,7 +186,6 @@ class RecordDetailsWindow(tk.Toplevel):
         ttk.Label(info_frame, text=f"Date: {record_info.record_date.strftime('%Y-%m-%d %H:%M')}").pack(anchor='w')
         ttk.Label(info_frame, text=f"Total Cost: ₹{record_info.total_cost:.2f}").pack(anchor='w')
 
-        # Display itemized list
         items_frame = ttk.LabelFrame(self, text="Items Used")
         items_frame.pack(padx=10, pady=5, fill='both', expand=True)
         
@@ -295,3 +282,227 @@ class AddRecordWindow(tk.Toplevel):
         record_data = {'car_number': car_number, 'owner_name': owner_name, 'items': self.selected_items}
         self.controller.save_car_record(record_data)
         self.destroy()
+
+# --- NEW CLASS: ManageItemsWindow ---
+class ManageItemsWindow(tk.Toplevel):
+    def __init__(self, parent, controller):
+        super().__init__(parent)
+        self.controller = controller
+        self.title("Manage Decor Items")
+        self.geometry("700x400")
+        self.transient(parent)
+        self.grab_set()
+        
+        self.main_frame = ttk.Frame(self)
+        self.main_frame.pack(padx=10, pady=10, fill='both', expand=True)
+
+        self.create_widgets()
+        self.populate_items_list()
+
+    def create_widgets(self):
+        # Frame for the list
+        list_frame = ttk.Frame(self.main_frame)
+        list_frame.pack(side='left', fill='both', expand=True, padx=(0, 10))
+        
+        self.item_tree = ttk.Treeview(list_frame, columns=("ID", "Name", "Price"), show="headings")
+        self.item_tree.heading("ID", text="ID")
+        self.item_tree.heading("Name", text="Item Name")
+        self.item_tree.heading("Price", text="Price")
+        self.item_tree.column("ID", width=40)
+        self.item_tree.pack(fill='both', expand=True)
+        self.item_tree.bind("<<TreeviewSelect>>", self.on_item_select)
+        
+        # Frame for the form and buttons
+        form_frame = ttk.Frame(self.main_frame)
+        form_frame.pack(side='left', fill='y')
+
+        # Form fields
+        details_frame = ttk.LabelFrame(form_frame, text="Item Details")
+        details_frame.pack(fill='x', pady=5)
+        
+        ttk.Label(details_frame, text="Name:").grid(row=0, column=0, padx=5, pady=5, sticky='w')
+        self.name_entry = ttk.Entry(details_frame, width=30)
+        self.name_entry.grid(row=0, column=1, padx=5, pady=5)
+        
+        ttk.Label(details_frame, text="Price:").grid(row=1, column=0, padx=5, pady=5, sticky='w')
+        self.price_entry = ttk.Entry(details_frame, width=30)
+        self.price_entry.grid(row=1, column=1, padx=5, pady=5)
+
+        # Action Buttons
+        button_frame = ttk.Frame(form_frame)
+        button_frame.pack(pady=10)
+
+        ttk.Button(button_frame, text="Add New", command=self.add_item).pack(fill='x', pady=2)
+        self.update_button = ttk.Button(button_frame, text="Update Selected", command=self.update_item, state="disabled")
+        self.update_button.pack(fill='x', pady=2)
+        self.delete_button = ttk.Button(button_frame, text="Delete Selected", command=self.delete_item, state="disabled")
+        self.delete_button.pack(fill='x', pady=2)
+        ttk.Button(button_frame, text="Clear Form", command=self.clear_form).pack(fill='x', pady=(10, 2))
+        ttk.Button(button_frame, text="Close", command=self.destroy).pack(fill='x', pady=2)
+        
+    def populate_items_list(self):
+        for item in self.item_tree.get_children(): self.item_tree.delete(item)
+        items = self.controller.get_all_decor_items()
+        for item in items:
+            self.item_tree.insert("", "end", values=(item.id, item.name, f"₹{item.price:.2f}"))
+        self.clear_form()
+
+    def on_item_select(self, event=None):
+        selected = self.item_tree.focus()
+        if selected:
+            item_values = self.item_tree.item(selected, 'values')
+            self.name_entry.delete(0, 'end')
+            self.name_entry.insert(0, item_values[1])
+            # Remove currency symbol and convert to float for the entry
+            price_str = str(item_values[2]).replace('₹', '')
+            self.price_entry.delete(0, 'end')
+            self.price_entry.insert(0, price_str)
+            self.update_button['state'] = 'normal'
+            self.delete_button['state'] = 'normal'
+        else:
+            self.update_button['state'] = 'disabled'
+            self.delete_button['state'] = 'disabled'
+
+    def clear_form(self):
+        self.name_entry.delete(0, 'end')
+        self.price_entry.delete(0, 'end')
+        if self.item_tree.selection():
+            self.item_tree.selection_remove(self.item_tree.selection()[0])
+        self.on_item_select()
+
+    def add_item(self):
+        name = self.name_entry.get()
+        price_str = self.price_entry.get()
+        if self.controller.add_decor_item(name, price_str, self):
+            self.populate_items_list()
+            
+    def update_item(self):
+        selected = self.item_tree.focus()
+        if not selected: return
+        item_id = self.item_tree.item(selected, 'values')[0]
+        name = self.name_entry.get()
+        price_str = self.price_entry.get()
+        if self.controller.update_decor_item(item_id, name, price_str, self):
+            self.populate_items_list()
+
+    def delete_item(self):
+        selected = self.item_tree.focus()
+        if not selected: return
+        item_id = self.item_tree.item(selected, 'values')[0]
+        item_name = self.item_tree.item(selected, 'values')[1]
+        if messagebox.askyesno("Confirm Delete", f"Are you sure you want to delete '{item_name}'?", parent=self):
+            if self.controller.delete_decor_item(item_id, self):
+                self.populate_items_list()
+
+# --- NEW CLASS: ManageUsersWindow ---
+class ManageUsersWindow(tk.Toplevel):
+    def __init__(self, parent, controller):
+        super().__init__(parent)
+        self.controller = controller
+        self.title("Manage Users")
+        self.geometry("700x400")
+        self.transient(parent)
+        self.grab_set()
+
+        self.main_frame = ttk.Frame(self)
+        self.main_frame.pack(padx=10, pady=10, fill='both', expand=True)
+
+        self.create_widgets()
+        self.populate_users_list()
+
+    def create_widgets(self):
+        list_frame = ttk.Frame(self.main_frame)
+        list_frame.pack(side='left', fill='both', expand=True, padx=(0, 10))
+
+        self.user_tree = ttk.Treeview(list_frame, columns=("ID", "Username", "Role"), show="headings")
+        self.user_tree.heading("ID", text="ID")
+        self.user_tree.heading("Username", text="Username")
+        self.user_tree.heading("Role", text="Role")
+        self.user_tree.column("ID", width=40)
+        self.user_tree.pack(fill='both', expand=True)
+        self.user_tree.bind("<<TreeviewSelect>>", self.on_user_select)
+
+        form_frame = ttk.Frame(self.main_frame)
+        form_frame.pack(side='left', fill='y')
+
+        details_frame = ttk.LabelFrame(form_frame, text="User Details")
+        details_frame.pack(fill='x', pady=5)
+
+        ttk.Label(details_frame, text="Username:").grid(row=0, column=0, padx=5, pady=5, sticky='w')
+        self.username_entry = ttk.Entry(details_frame, width=30)
+        self.username_entry.grid(row=0, column=1, padx=5, pady=5)
+
+        ttk.Label(details_frame, text="Password:").grid(row=1, column=0, padx=5, pady=5, sticky='w')
+        self.password_entry = ttk.Entry(details_frame, width=30, show="*")
+        self.password_entry.grid(row=1, column=1, padx=5, pady=5)
+        ttk.Label(details_frame, text="(Leave blank to keep current password)").grid(row=2, column=1, padx=5, pady=2, sticky='w')
+
+        ttk.Label(details_frame, text="Role:").grid(row=3, column=0, padx=5, pady=5, sticky='w')
+        self.role_combobox = ttk.Combobox(details_frame, values=['std', 'admin'], state='readonly')
+        self.role_combobox.grid(row=3, column=1, padx=5, pady=5)
+
+        button_frame = ttk.Frame(form_frame)
+        button_frame.pack(pady=10)
+
+        ttk.Button(button_frame, text="Add New User", command=self.add_user).pack(fill='x', pady=2)
+        self.update_button = ttk.Button(button_frame, text="Update Selected", command=self.update_user, state="disabled")
+        self.update_button.pack(fill='x', pady=2)
+        self.delete_button = ttk.Button(button_frame, text="Delete Selected", command=self.delete_user, state="disabled")
+        self.delete_button.pack(fill='x', pady=2)
+        ttk.Button(button_frame, text="Clear Form", command=self.clear_form).pack(fill='x', pady=(10, 2))
+        ttk.Button(button_frame, text="Close", command=self.destroy).pack(fill='x', pady=2)
+
+    def populate_users_list(self):
+        for item in self.user_tree.get_children(): self.user_tree.delete(item)
+        users = self.controller.get_all_users()
+        for user in users:
+            self.user_tree.insert("", "end", values=(user.id, user.username, user.role))
+        self.clear_form()
+
+    def on_user_select(self, event=None):
+        selected = self.user_tree.focus()
+        if selected:
+            user_values = self.user_tree.item(selected, 'values')
+            self.username_entry.delete(0, 'end')
+            self.username_entry.insert(0, user_values[1])
+            self.role_combobox.set(user_values[2])
+            self.password_entry.delete(0, 'end') # Always clear password field on select
+            self.update_button['state'] = 'normal'
+            self.delete_button['state'] = 'normal'
+        else:
+            self.update_button['state'] = 'disabled'
+            self.delete_button['state'] = 'disabled'
+
+    def clear_form(self):
+        self.username_entry.delete(0, 'end')
+        self.password_entry.delete(0, 'end')
+        self.role_combobox.set('')
+        if self.user_tree.selection():
+            self.user_tree.selection_remove(self.user_tree.selection()[0])
+        self.on_user_select()
+
+    def add_user(self):
+        username = self.username_entry.get()
+        password = self.password_entry.get()
+        role = self.role_combobox.get()
+        if self.controller.add_user(username, password, role, self):
+            self.populate_users_list()
+            
+    def update_user(self):
+        selected = self.user_tree.focus()
+        if not selected: return
+        user_id = self.user_tree.item(selected, 'values')[0]
+        username = self.username_entry.get()
+        password = self.password_entry.get() # Can be empty
+        role = self.role_combobox.get()
+        if self.controller.update_user(user_id, username, password, role, self):
+            self.populate_users_list()
+            
+    def delete_user(self):
+        selected = self.user_tree.focus()
+        if not selected: return
+        user_id = self.user_tree.item(selected, 'values')[0]
+        username = self.user_tree.item(selected, 'values')[1]
+        if messagebox.askyesno("Confirm Delete", f"Are you sure you want to delete user '{username}'?", parent=self):
+            if self.controller.delete_user(user_id, self):
+                self.populate_users_list()
