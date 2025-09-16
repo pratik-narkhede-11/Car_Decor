@@ -1,3 +1,4 @@
+#model.py
 import os
 import datetime
 from sqlalchemy import create_engine, Column, Integer, String, Float, ForeignKey, DateTime
@@ -53,7 +54,6 @@ def init_db():
     Base.metadata.create_all(engine)
     session = Session()
     if not session.query(User).filter_by(username='admin').first():
-        print("Creating default admin user...")
         default_admin = User(username='admin', role='admin')
         default_admin.set_password('admin123')
         session.add(default_admin)
