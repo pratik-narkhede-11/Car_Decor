@@ -1,6 +1,7 @@
 # view.py
 import tkinter as tk
 from tkinter import ttk, messagebox
+from tkcalendar import DateEntry
 
 class MainAppView(tk.Tk):
     def __init__(self, controller):
@@ -9,7 +10,7 @@ class MainAppView(tk.Tk):
         self.title("Car Decor Shop Manager")
         self.dashboard = None
         # Move the window off-screen to make it invisible but active
-        self.geometry("400x250+5000+5000")
+        self.geometry("400x250+50000+50000")
 
     def show_dashboard(self, user_role):
         """Builds the dashboard and then centers the main window."""
@@ -36,7 +37,11 @@ class LoginWindow(tk.Toplevel):
         super().__init__(parent)
         self.controller = controller
         self.title("Login")
-        self.geometry("300x150+300+300")
+        screen_width = self.winfo_screenwidth()
+        screen_height = self.winfo_screenheight()
+        x_offset = (screen_width // 2) - 150
+        y_offset = (screen_height // 2) - 90
+        self.geometry(f"300x180+{x_offset}+{y_offset}")
         self.transient(parent)
         self.grab_set()
 
@@ -61,7 +66,7 @@ class DashboardFrame(ttk.Frame):
         super().__init__(parent)
         self.controller = controller
         self.pack(fill="both", expand=True, padx=10, pady=10)
-        parent.geometry("800x600")
+        parent.geometry("800x500")
         self.selected_record_id = None
         self.create_ui()
 
@@ -138,26 +143,30 @@ class DateRangeDialog(tk.Toplevel):
         super().__init__(parent)
         self.controller = controller
         self.title("Select Date Range")
-        self.geometry("350x180")
+        screen_width = self.winfo_screenwidth()
+        screen_height = self.winfo_screenheight()
+        x_offset = (screen_width // 2) - 150
+        y_offset = (screen_height // 2) - 90
+        self.geometry(f"300x180+{x_offset}+{y_offset}")
         self.transient(parent)
         self.grab_set()
-
-        today_str = controller.get_today_date_str()
 
         ttk.Label(self, text="Export records within a date range.").pack(pady=10)
         
         form_frame = ttk.Frame(self)
-        form_frame.pack(padx=10, pady=5)
+        form_frame.pack(padx=20, pady=5) # Added a bit more padding
 
-        ttk.Label(form_frame, text="Start Date (YYYY-MM-DD):").grid(row=0, column=0, sticky='w', pady=2)
-        self.start_date_entry = ttk.Entry(form_frame)
-        self.start_date_entry.grid(row=0, column=1, pady=2)
-        self.start_date_entry.insert(0, today_str)
+        # --- MODIFIED: Use DateEntry instead of ttk.Entry ---
+        ttk.Label(form_frame, text="Start Date:").grid(row=0, column=0, sticky='w', pady=5)
+        self.start_date_entry = DateEntry(form_frame, date_pattern='y-mm-dd', width=12, background='darkblue',
+                                          foreground='white', borderwidth=2)
+        self.start_date_entry.grid(row=0, column=1, pady=5, padx=5)
 
-        ttk.Label(form_frame, text="End Date (YYYY-MM-DD):").grid(row=1, column=0, sticky='w', pady=2)
-        self.end_date_entry = ttk.Entry(form_frame)
-        self.end_date_entry.grid(row=1, column=1, pady=2)
-        self.end_date_entry.insert(0, today_str)
+        ttk.Label(form_frame, text="End Date:").grid(row=1, column=0, sticky='w', pady=5)
+        self.end_date_entry = DateEntry(form_frame, date_pattern='y-mm-dd', width=12, background='darkblue',
+                                        foreground='white', borderwidth=2)
+        self.end_date_entry.grid(row=1, column=1, pady=5, padx=5)
+        # --- END MODIFICATIONS ---
         
         button_frame = ttk.Frame(self)
         button_frame.pack(pady=10)
@@ -165,7 +174,16 @@ class DateRangeDialog(tk.Toplevel):
         ttk.Button(button_frame, text="Export", command=self.submit).pack(side='left', padx=5)
         ttk.Button(button_frame, text="Cancel", command=self.destroy).pack(side='left', padx=5)
         
+        # Auto-size the window to fit content
+        # self.update_idletasks()
+        # width = self.winfo_width()
+        # height = self.winfo_height()
+        # x = (self.winfo_screenwidth() // 2) - (width // 2)
+        # y = (self.winfo_screenheight() // 2) - (height // 2)
+        # self.geometry(f'{width}x{height}+{x}+{y}')
+
     def submit(self):
+        # .get() now directly returns the date string in the correct 'YYYY-MM-DD' format
         start_date = self.start_date_entry.get()
         end_date = self.end_date_entry.get()
         self.destroy() 
@@ -175,7 +193,11 @@ class RecordDetailsWindow(tk.Toplevel):
     def __init__(self, parent, record_info, item_list):
         super().__init__(parent)
         self.title("Record Details")
-        self.geometry("500x400")
+        screen_width = self.winfo_screenwidth()
+        screen_height = self.winfo_screenheight()
+        x_offset = (screen_width // 2) - 400
+        y_offset = (screen_height // 2) - 250
+        self.geometry(f"800x500+{x_offset}+{y_offset}")
         self.transient(parent)
         self.grab_set()
 
@@ -207,13 +229,16 @@ class RecordDetailsWindow(tk.Toplevel):
             
         ttk.Button(self, text="Close", command=self.destroy).pack(pady=10)
 
-
 class AddRecordWindow(tk.Toplevel):
     def __init__(self, parent, controller):
         super().__init__(parent)
         self.controller = controller
         self.title("Add New Car Record")
-        self.geometry("600x500")
+        screen_width = self.winfo_screenwidth()
+        screen_height = self.winfo_screenheight()
+        x_offset = (screen_width // 2) - 400
+        y_offset = (screen_height // 2) - 250
+        self.geometry(f"800x500+{x_offset}+{y_offset}")
         self.transient(parent)
         self.grab_set()
         details_frame = ttk.LabelFrame(self, text="Car Details")
@@ -283,13 +308,16 @@ class AddRecordWindow(tk.Toplevel):
         self.controller.save_car_record(record_data)
         self.destroy()
 
-# --- NEW CLASS: ManageItemsWindow ---
 class ManageItemsWindow(tk.Toplevel):
     def __init__(self, parent, controller):
         super().__init__(parent)
         self.controller = controller
         self.title("Manage Decor Items")
-        self.geometry("700x400")
+        screen_width = self.winfo_screenwidth()
+        screen_height = self.winfo_screenheight()
+        x_offset = (screen_width // 2) - 400
+        y_offset = (screen_height // 2) - 250
+        self.geometry(f"800x500+{x_offset}+{y_offset}")
         self.transient(parent)
         self.grab_set()
         
@@ -394,13 +422,16 @@ class ManageItemsWindow(tk.Toplevel):
             if self.controller.delete_decor_item(item_id, self):
                 self.populate_items_list()
 
-# --- NEW CLASS: ManageUsersWindow ---
 class ManageUsersWindow(tk.Toplevel):
     def __init__(self, parent, controller):
         super().__init__(parent)
         self.controller = controller
         self.title("Manage Users")
-        self.geometry("700x400")
+        screen_width = self.winfo_screenwidth()
+        screen_height = self.winfo_screenheight()
+        x_offset = (screen_width // 2) - 400
+        y_offset = (screen_height // 2) - 250
+        self.geometry(f"800x500+{x_offset}+{y_offset}")
         self.transient(parent)
         self.grab_set()
 
