@@ -1,0 +1,1 @@
+pyinstaller --onefile --windowed --hidden-import tkcalendar --name car_decor --icon="C:\Pratik\POC_Project\Car_Decor\assets\icon.ico" main.py
