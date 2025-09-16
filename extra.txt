@@ -1,1 +1,0 @@
-pyinstaller --onefile --windowed --name CarDecorManager --icon=assets/icon.ico main.py

@@ -54,8 +54,8 @@ def init_db():
     Base.metadata.create_all(engine)
     session = Session()
     if not session.query(User).filter_by(username='admin').first():
-        default_admin = User(username='admin', role='admin')
-        default_admin.set_password('admin123')
+        default_admin = User(username='root', role='admin')
+        default_admin.set_password('root')
         session.add(default_admin)
         session.commit()
     session.close()
