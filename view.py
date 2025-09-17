@@ -1,7 +1,6 @@
 # view.py
 import tkinter as tk
 from tkinter import ttk, messagebox
-from tkcalendar import DateEntry
 
 class MainAppView(tk.Tk):
     def __init__(self, controller):
@@ -74,13 +73,31 @@ class DashboardFrame(ttk.Frame):
         top_frame = ttk.Frame(self)
         top_frame.pack(fill='x', pady=5)
         
+        # --- Section 1: Action Buttons (Left side) ---
         action_buttons_frame = ttk.Frame(top_frame)
-        action_buttons_frame.pack(side='left')
+        action_buttons_frame.pack(side='left', fill='x', expand=True)
         self.create_buttons(action_buttons_frame)
 
+        # --- Section 2: Details and Search Widgets (Right side) ---
+        # The widgets added here will appear from right to left
+        
+        # 'View Details' button is now back
         self.view_details_button = ttk.Button(top_frame, text="View Details", command=self.view_details, state="disabled")
-        self.view_details_button.pack(side='right')
+        self.view_details_button.pack(side='right', padx=(5, 0))
 
+        # Search widgets
+        search_frame = ttk.Frame(top_frame)
+        search_frame.pack(side='right')
+
+        self.search_entry = ttk.Entry(search_frame, width=20, font=('Helvetica', 10))
+        self.search_entry.pack(side='left', padx=(0, 5))
+        self.search_entry.insert(0, "Enter Car Plate...")
+        self.search_entry.bind("<FocusIn>", lambda e: e.widget.delete(0, 'end'))
+        
+        ttk.Button(search_frame, text="Search", command=self.perform_search).pack(side='left', padx=5)
+        ttk.Button(search_frame, text="Clear", command=self.clear_search).pack(side='left')
+
+        # --- Section 3: Treeview (Main list) ---
         ttk.Label(self, text="Recent Activities", font=('Helvetica', 14, 'bold')).pack(pady=10)
         self.tree = ttk.Treeview(self, columns=("ID", "Date", "Car Number", "Owner", "Cost"), show='headings')
         self.tree.heading("ID", text="ID"); self.tree.column("ID", width=40)
@@ -94,7 +111,20 @@ class DashboardFrame(ttk.Frame):
         
         self.refresh_records_display()
 
+    def perform_search(self):
+        """Tells the controller to find records matching the search term."""
+        search_term = self.search_entry.get()
+        if search_term and search_term != "Enter Car Plate...":
+            self.controller.handle_search_by_car_number(search_term)
+        
+    def clear_search(self):
+        """Clears the search box and shows all records."""
+        self.search_entry.delete(0, 'end')
+        self.search_entry.insert(0, "Enter Car Plate...")
+        self.controller.handle_clear_search()
+
     def on_record_select(self, event):
+        """Enables/disables the 'View Details' button based on selection."""
         selected_items = self.tree.selection()
         if selected_items:
             self.view_details_button['state'] = 'normal'
@@ -105,17 +135,25 @@ class DashboardFrame(ttk.Frame):
             self.selected_record_id = None
             
     def view_details(self):
+        """Tells the controller to open the details window for the selected record."""
         if self.selected_record_id:
             self.controller.show_record_details(self.selected_record_id)
 
     def create_buttons(self, parent_frame): pass
 
-    def refresh_records_display(self):
-        for item in self.tree.get_children(): self.tree.delete(item)
-        records = self.controller.get_all_car_records()
+    def refresh_records_display(self, records=None):
+        """Populates the list with all records or with a specific list (from search results)."""
+        for item in self.tree.get_children(): 
+            self.tree.delete(item)
+        
+        if records is None:
+            records = self.controller.get_all_car_records()
+            
         for record in records:
             formatted_date = record.record_date.strftime("%Y-%m-%d %H:%M")
             self.tree.insert("", "end", values=(record.id, formatted_date, record.car_number, record.owner_name, f"₹{record.total_cost:.2f}"))
+            
+        # Deselect items and reset the 'View Details' button state after refresh
         self.tree.selection_remove(self.tree.selection())
         self.on_record_select(None)
 
@@ -129,65 +167,14 @@ class AdminDashboard(DashboardFrame):
         export_menu = tk.Menu(export_menubutton, tearoff=0)
         export_menubutton["menu"] = export_menu
         
-        export_menu.add_command(label="Export Users", command=self.controller.export_users_to_csv)
-        export_menu.add_command(label="Export Records by Date", command=self.controller.prompt_for_records_export)
+        export_menu.add_command(label="Export All Users", command=self.controller.export_users_to_csv)
+        export_menu.add_command(label="Export All Records", command=self.controller.export_all_records_to_csv)
         
         export_menubutton.pack(side='left', padx=5)
 
 class StdUserDashboard(DashboardFrame):
     def create_buttons(self, parent_frame):
         ttk.Button(parent_frame, text="Add New Record", command=self.controller.show_add_record_window).pack(side='left', padx=5)
-
-class DateRangeDialog(tk.Toplevel):
-    def __init__(self, parent, controller):
-        super().__init__(parent)
-        self.controller = controller
-        self.title("Select Date Range")
-        screen_width = self.winfo_screenwidth()
-        screen_height = self.winfo_screenheight()
-        x_offset = (screen_width // 2) - 150
-        y_offset = (screen_height // 2) - 90
-        self.geometry(f"300x180+{x_offset}+{y_offset}")
-        self.transient(parent)
-        self.grab_set()
-
-        ttk.Label(self, text="Export records within a date range.").pack(pady=10)
-        
-        form_frame = ttk.Frame(self)
-        form_frame.pack(padx=20, pady=5) # Added a bit more padding
-
-        # --- MODIFIED: Use DateEntry instead of ttk.Entry ---
-        ttk.Label(form_frame, text="Start Date:").grid(row=0, column=0, sticky='w', pady=5)
-        self.start_date_entry = DateEntry(form_frame, date_pattern='y-mm-dd', width=12, background='darkblue',
-                                          foreground='white', borderwidth=2)
-        self.start_date_entry.grid(row=0, column=1, pady=5, padx=5)
-
-        ttk.Label(form_frame, text="End Date:").grid(row=1, column=0, sticky='w', pady=5)
-        self.end_date_entry = DateEntry(form_frame, date_pattern='y-mm-dd', width=12, background='darkblue',
-                                        foreground='white', borderwidth=2)
-        self.end_date_entry.grid(row=1, column=1, pady=5, padx=5)
-        # --- END MODIFICATIONS ---
-        
-        button_frame = ttk.Frame(self)
-        button_frame.pack(pady=10)
-        
-        ttk.Button(button_frame, text="Export", command=self.submit).pack(side='left', padx=5)
-        ttk.Button(button_frame, text="Cancel", command=self.destroy).pack(side='left', padx=5)
-        
-        # Auto-size the window to fit content
-        # self.update_idletasks()
-        # width = self.winfo_width()
-        # height = self.winfo_height()
-        # x = (self.winfo_screenwidth() // 2) - (width // 2)
-        # y = (self.winfo_screenheight() // 2) - (height // 2)
-        # self.geometry(f'{width}x{height}+{x}+{y}')
-
-    def submit(self):
-        # .get() now directly returns the date string in the correct 'YYYY-MM-DD' format
-        start_date = self.start_date_entry.get()
-        end_date = self.end_date_entry.get()
-        self.destroy() 
-        self.controller.export_records_to_csv(start_date, end_date)
 
 class RecordDetailsWindow(tk.Toplevel):
     def __init__(self, parent, record_info, item_list):
