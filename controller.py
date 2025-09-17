@@ -3,7 +3,7 @@ import csv
 from datetime import datetime, timedelta
 from tkinter import filedialog, messagebox
 # UPDATED: Import the new window classes
-from view import LoginWindow, AddRecordWindow, RecordDetailsWindow, DateRangeDialog, ManageItemsWindow, ManageUsersWindow
+from view import LoginWindow, AddRecordWindow, RecordDetailsWindow, ManageItemsWindow, ManageUsersWindow
 from model import Session, User, DecorItem, CarRecord, RecordItemLink
 from sqlalchemy.exc import IntegrityError # For handling DB constraint errors
 
@@ -237,6 +237,27 @@ class Controller:
             return False
         return False
 
+    def handle_search_by_car_number(self, car_number):
+        """
+        Searches for car records with a matching plate number (case-insensitive).
+        """
+        # .ilike() provides a case-insensitive partial match
+        search_results = self.session.query(CarRecord).filter(
+            CarRecord.car_number.ilike(f'%{car_number}%')
+        ).all()
+        
+        if not search_results:
+            messagebox.showinfo("No Results", f"No records found for '{car_number}'.")
+        
+        # Pass the results to the view to display them
+        self.view.dashboard.refresh_records_display(search_results)
+
+    def handle_clear_search(self):
+        """
+        Tells the view to clear search results and display all records again.
+        """
+        # Calling refresh without arguments makes it show all records by default
+        self.view.dashboard.refresh_records_display()
 
     # --- Other Methods ---
     def get_all_decor_items(self):
@@ -268,31 +289,18 @@ class Controller:
         except Exception as e:
             messagebox.showerror("Export Error", f"An error occurred: {e}")
 
-    def prompt_for_records_export(self):
-        dialog = DateRangeDialog(self.view, self)
-        dialog.wait_window()
-
-    def export_records_to_csv(self, start_date_str, end_date_str):
-        try:
-            start_date = datetime.strptime(start_date_str, '%Y-%m-%d')
-            end_date = datetime.strptime(end_date_str, '%Y-%m-%d') + timedelta(days=1)
-        except ValueError:
-            messagebox.showerror("Invalid Date", "Please enter dates in YYYY-MM-DD format.")
-            return
-
+    def export_all_records_to_csv(self):
         filepath = filedialog.asksaveasfilename(
             defaultextension=".csv",
             filetypes=[("CSV Files", "*.csv"), ("All Files", "*.*")],
-            title="Save Records As"
+            title="Save All Records As"
         )
         if not filepath:
             return
 
         try:
-            records = self.session.query(CarRecord).filter(
-                CarRecord.record_date >= start_date,
-                CarRecord.record_date < end_date
-            ).all()
+            # Simple query to get all records
+            records = self.session.query(CarRecord).order_by(CarRecord.record_date.desc()).all()
 
             with open(filepath, 'w', newline='', encoding='utf-8') as csvfile:
                 writer = csv.writer(csvfile)
